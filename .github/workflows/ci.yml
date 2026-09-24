@@ -1,0 +1,61 @@
+name: ChurnGuard CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Test and build inference image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install project and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[analysis,test]"
+
+      - name: Run test suite
+        run: python -m pytest -q
+
+      - name: Compile Python sources and tests
+        run: python -m compileall -q src tests
+
+      - name: Check patch whitespace
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git diff --check "origin/${BASE_REF}...HEAD"
+
+      - name: Check pushed commit whitespace
+        if: github.event_name == 'push'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            git diff --check "HEAD^" "$AFTER_SHA"
+          else
+            git diff --check "$BEFORE_SHA" "$AFTER_SHA"
+          fi
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config
+
+      - name: Build inference image
+        run: docker build --tag churnguard-api:ci .
