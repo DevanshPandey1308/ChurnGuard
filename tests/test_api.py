@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
-from churnguard.api import create_app
+from churnguard.api import create_app, score_feature_matrix
 from churnguard.artifacts import export_inference_artifacts
 from churnguard.model_config import ModelConfig, TemporalSplitConfig
 
@@ -224,6 +224,19 @@ class ApiTests(unittest.TestCase):
         extra_field = record()
         extra_field["future_net_spend_90d"] = 10
         self.assertEqual(self.client.post("/predict", json=extra_field).status_code, 422)
+
+    def test_shared_internal_scorer_maps_unseen_category_to_model_missing_category(self):
+        # Offline model preprocessing represents unseen levels as missing; the
+        # public request validator remains strict for ordinary API requests.
+        features = pd.DataFrame([{
+            "recency_days": 30,
+            "purchase_invoice_count": 3,
+            "historical_net_spend": 125.0,
+            "Country": "Unknown",
+        }], columns=PREPROCESSING["feature_columns"])
+        scores = score_feature_matrix(features, self.app.state.artifacts)
+        self.assertTrue(np.isfinite(scores.to_numpy(dtype=float)).all())
+        self.assertEqual(self.client.post("/predict", json=record(country="Unknown")).status_code, 422)
 
     def test_api_uses_supervised_value_model_without_future_labels_or_artifact_mutation(self):
         bundle_path = self.artifact_dir / "future_value" / "model.joblib"

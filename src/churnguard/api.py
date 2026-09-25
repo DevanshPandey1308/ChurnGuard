@@ -105,26 +105,45 @@ def _preprocess(frame: pd.DataFrame, schema: dict) -> pd.DataFrame:
     return result.loc[:, schema["feature_columns"]]
 
 
-def _score(record: FeatureRecord, artifacts: InferenceArtifacts) -> dict:
-    raw = _feature_frame(record, artifacts.metadata)
+def score_feature_matrix(features: pd.DataFrame, artifacts: InferenceArtifacts) -> pd.DataFrame:
+    """Score a validated, ordered model feature matrix using frozen artifacts.
+
+    This is the shared inference implementation for API records and offline
+    reporting populations. Categorical values outside the fitted pandas
+    category vocabulary become missing during ``_preprocess``, matching the
+    existing training/inference preprocessing convention.
+    """
+    expected = list(artifacts.metadata["feature_columns"])
+    if list(features.columns) != expected:
+        raise ValueError("Feature matrix columns must exactly match the frozen model feature order")
     churn_schema = artifacts.metadata["churn_preprocessing"]
     value_schema = artifacts.metadata["future_value_preprocessing"]
-    churn_matrix = _preprocess(raw, churn_schema)
-    value_matrix = _preprocess(raw, value_schema)
-    raw_probability = float(artifacts.churn_model.predict_proba(churn_matrix)[:, 1][0])
-    churn_probability = float(artifacts.calibrator.predict([raw_probability])[0])
-    transformed_value = float(artifacts.future_value_model.predict(value_matrix)[0])
+    churn_matrix = _preprocess(features, churn_schema)
+    value_matrix = _preprocess(features, value_schema)
+    raw_probability = np.asarray(artifacts.churn_model.predict_proba(churn_matrix)[:, 1], dtype=float)
+    churn_probability = np.asarray(artifacts.calibrator.predict(raw_probability), dtype=float).reshape(-1)
+    transformed_value = np.asarray(artifacts.future_value_model.predict(value_matrix), dtype=float).reshape(-1)
     lower, upper = artifacts.metadata["future_value_training_transformed_target_bounds"]
-    transformed_value = float(np.clip(transformed_value, lower, upper))
-    predicted_value = float(signed_expm1([transformed_value])[0])
-    if not all(math.isfinite(value) for value in (churn_probability, predicted_value)):
+    transformed_value = np.clip(transformed_value, lower, upper)
+    predicted_value = np.asarray(signed_expm1(transformed_value), dtype=float).reshape(-1)
+    if not (np.isfinite(churn_probability).all() and np.isfinite(predicted_value).all()):
         raise ValueError("Model produced a non-finite score")
-    return {
-        "CustomerID": record.CustomerID,
-        "snapshot_date": _normalise_snapshot(record.snapshot_date),
+    return pd.DataFrame({
         "churn_probability": churn_probability,
         "predicted_90d_value": predicted_value,
         "risk_weighted_value": churn_probability * predicted_value,
+    })
+
+
+def _score(record: FeatureRecord, artifacts: InferenceArtifacts) -> dict:
+    raw = _feature_frame(record, artifacts.metadata)
+    score = score_feature_matrix(raw, artifacts).iloc[0]
+    return {
+        "CustomerID": record.CustomerID,
+        "snapshot_date": _normalise_snapshot(record.snapshot_date),
+        "churn_probability": float(score["churn_probability"]),
+        "predicted_90d_value": float(score["predicted_90d_value"]),
+        "risk_weighted_value": float(score["risk_weighted_value"]),
     }
 
 
