@@ -1,0 +1,52 @@
+[
+  {
+    "feature": "purchase_invoice_count",
+    "mean_abs_shap": 0.44024064189410905,
+    "rank": 1
+  },
+  {
+    "feature": "units_purchased",
+    "mean_abs_shap": 0.1787008517655179,
+    "rank": 2
+  },
+  {
+    "feature": "historical_net_spend",
+    "mean_abs_shap": 0.15438782346295057,
+    "rank": 3
+  },
+  {
+    "feature": "purchase_line_count",
+    "mean_abs_shap": 0.15292080215597684,
+    "rank": 4
+  },
+  {
+    "feature": "recency_days",
+    "mean_abs_shap": 0.15073914629498364,
+    "rank": 5
+  },
+  {
+    "feature": "recent_3m_net_spend",
+    "mean_abs_shap": 0.12384727867485373,
+    "rank": 6
+  },
+  {
+    "feature": "distinct_products",
+    "mean_abs_shap": 0.11694082992043735,
+    "rank": 7
+  },
+  {
+    "feature": "recent_3m_order_count",
+    "mean_abs_shap": 0.11659161690185085,
+    "rank": 8
+  },
+  {
+    "feature": "average_order_value",
+    "mean_abs_shap": 0.10070743853626582,
+    "rank": 9
+  },
+  {
+    "feature": "average_items_per_order",
+    "mean_abs_shap": 0.09354742447622216,
+    "rank": 10
+  }
+]

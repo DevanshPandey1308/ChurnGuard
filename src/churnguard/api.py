@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -159,6 +160,24 @@ def create_app(artifact_dir: str | Path | None = None) -> FastAPI:
     """Construct an app and load frozen models once; absent artifacts stay unready."""
     directory = Path(artifact_dir or os.environ.get("CHURNGUARD_MODEL_DIR", "models"))
     app = FastAPI(title="ChurnGuard Inference API", version="1.0.0")
+    # Local Vite development runs on a separate origin from the API. Restrict
+    # browser access to local development hosts; deployed frontends can use a
+    # same-origin reverse proxy or provide exact trusted origins at deployment.
+    cors_origins = [
+        origin.strip()
+        for origin in os.environ.get(
+            "CHURNGUARD_CORS_ORIGINS",
+            "http://localhost:5173,http://127.0.0.1:5173",
+        ).split(",")
+        if origin.strip()
+    ]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
     artifacts = None
     load_error = None
     try:
