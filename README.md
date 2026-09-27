@@ -4,6 +4,12 @@ ChurnGuard is an end-to-end customer churn and future-value prediction project b
 
 The project is an engineering and modeling demonstration. It does not claim that a retention action will save revenue or cause a customer to return.
 
+<!-- Once deployed, replace this with your real links:
+## Live demo
+- API: https://your-service.onrender.com/health
+- App: https://your-app.vercel.app
+-->
+
 ## Problem
 
 Traditional RFM analysis describes past customer behavior. ChurnGuard builds on that foundation to answer two forward-looking questions:
@@ -118,7 +124,27 @@ customer_snapshots = run_pipeline(config)
 
 Snapshot dates, horizon, feature windows, and data path are configurable in Python. The temporal split and model parameters are defined in `src/churnguard/model_config.py`.
 
-### 4. Run checks
+### 4. Train models and export artifacts
+
+The API only serves frozen models — it never trains them. Fit the baselines and LightGBM models on the snapshot table, then export the fitted models and schema metadata to `models/` so the API (or Docker container) can load them:
+
+```python
+from churnguard.artifacts import export_inference_artifacts
+from churnguard.experiment import evaluate_models
+from churnguard.model_config import ModelConfig, TemporalSplitConfig
+
+split_config = TemporalSplitConfig()
+model_config = ModelConfig()
+evaluation_results = evaluate_models(customer_snapshots, split_config, model_config)
+
+export_inference_artifacts(
+    evaluation_results, split_config, model_config, artifact_dir="models"
+)
+```
+
+This writes `models/churn/model.joblib`, `models/future_value/model.joblib`, and `models/metadata.json`. `models/` is gitignored on purpose — it's a build output, not source code — so this step must be run at least once before `GET /health` will report `status: ok`. See [`docs/docker.md`](docs/docker.md) for the full explanation and Docker-specific notes.
+
+### 5. Run checks
 
 ```bash
 python -m pytest -q
@@ -145,13 +171,35 @@ Frozen files live under the gitignored `models/` directory and are supplied at r
 docker compose up --build -d
 ```
 
+Example request once the API is running (feature names/values must match `models/metadata.json` for your trained artifacts):
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+        "CustomerID": 9001,
+        "snapshot_date": "2011-06-01",
+        "features": { "...": "see models/metadata.json for the exact feature schema" }
+      }'
+```
+
+```json
+{
+  "CustomerID": 9001,
+  "snapshot_date": "2011-06-01T00:00:00",
+  "churn_probability": 0.42,
+  "predicted_90d_value": 118.30,
+  "risk_weighted_value": 49.69
+}
+```
+
 The React app in `frontend/` is a separate local development server that calls the API. See [`docs/frontend.md`](docs/frontend.md) for startup instructions. This repository provides local serving/container foundations; it does not currently deploy a public endpoint.
 
 ## Explainability, tracking, drift, and reporting
 
 - **SHAP:** Global and selected local explanations for the churn model. Values are in raw-margin/log-odds space and describe model behavior, not causality.
 - **MLflow:** Local experiment tracking for churn, future value, and optional targeting analysis. It is not a hosted tracking service.
-- **PSI:** A manual comparison between the frozen model’s training-feature population and a supplied scoring batch. PSI above 0.20 is a review/retraining signal, not proof of model inaccuracy; no automatic retraining occurs. See [`docs/psi_drift.md`](docs/psi_drift.md).
+- **PSI:** A manual comparison between the frozen model's training-feature population and a supplied scoring batch. PSI above 0.20 is a review/retraining signal, not proof of model inaccuracy; no automatic retraining occurs. See [`docs/psi_drift.md`](docs/psi_drift.md).
 - **Power BI:** The project exports scored customer snapshots and global feature importance with report measures/instructions. The Power BI Desktop report itself still requires rebuilding and visual verification; see [`docs/powerbi.md`](docs/powerbi.md).
 
 ## Limitations
@@ -163,3 +211,7 @@ The React app in `frontend/` is a separate local development server that calls t
 - API authentication, public deployment, hosted tracking, automated alerts, and automatic retraining are outside the current implementation.
 
 All reported model results describe the stated historical splits only. They should not be generalized to other retailers or interpreted as realized business impact.
+
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify, and share with attribution. Add a `LICENSE` file with the MIT text at the repo root if it isn't there yet (swap this section if you'd rather use a different license).
