@@ -1,7 +1,14 @@
+@"
 __pycache__/
 *.py[cod]
 .venv/
 artifacts/
 mlruns/
-models/
+models/*
+!models/metadata.json
+!models/churn/
+!models/churn/model.joblib
+!models/future_value/
+!models/future_value/model.joblib
 *.egg-info/
+"@ | Set-Content .gitignore
