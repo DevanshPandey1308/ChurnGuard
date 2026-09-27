@@ -181,6 +181,18 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(missing.json()["status"], "not_ready")
         self.assertFalse(missing.json()["future_value_model_loaded"])
 
+    def test_swagger_and_openapi_documentation_routes_are_available(self):
+        for path in ("/docs", "/redoc"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertIn("<html", response.text.lower())
+
+        response = self.client.get("/openapi.json")
+        self.assertEqual(response.status_code, 200, response.text)
+        schema = response.json()
+        self.assertEqual(schema["openapi"], "3.1.0")
+        self.assertTrue({"/", "/health", "/predict", "/batch_score"}.issubset(schema["paths"]))
+
     def test_predict_returns_scores_preserves_metadata_and_uses_calibrated_probability(self):
         response = self.client.post("/predict", json=record())
         self.assertEqual(response.status_code, 200, response.text)

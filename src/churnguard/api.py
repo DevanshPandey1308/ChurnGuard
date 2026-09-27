@@ -178,7 +178,13 @@ def _rank_batch(rows: list[dict]) -> None:
 def create_app(artifact_dir: str | Path | None = None) -> FastAPI:
     """Construct an app and load frozen models once; absent artifacts stay unready."""
     directory = Path(artifact_dir or os.environ.get("CHURNGUARD_MODEL_DIR", "models"))
-    app = FastAPI(title="ChurnGuard Inference API", version="1.0.0")
+    app = FastAPI(
+        title="ChurnGuard Inference API",
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
     # Local Vite development runs on a separate origin from the API. Restrict
     # browser access to local development hosts; deployed frontends can use a
     # same-origin reverse proxy or provide exact trusted origins at deployment.
