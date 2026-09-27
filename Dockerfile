@@ -15,6 +15,7 @@ RUN apt-get update \
 
 COPY pyproject.toml ./
 COPY src/churnguard ./src/churnguard
+COPY models ./models
 RUN python -m pip install --no-cache-dir .
 
 USER 10001:10001
