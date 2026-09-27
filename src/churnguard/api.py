@@ -212,6 +212,7 @@ def create_app(artifact_dir: str | Path | None = None) -> FastAPI:
         return app.state.artifacts
 
     @app.get("/health")
+    @app.get("/")
     def health():
         loaded = app.state.artifacts is not None
         response = {

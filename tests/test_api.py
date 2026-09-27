@@ -168,12 +168,14 @@ class ApiTests(unittest.TestCase):
         self.temporary.cleanup()
 
     def test_health_reports_loaded_and_missing_artifact_states(self):
-        response = self.client.get("/health")
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {
+        expected = {
             "status": "ok", "churn_model_loaded": True,
             "calibrator_loaded": True, "future_value_model_loaded": True,
-        })
+        }
+        for path in ("/health", "/"):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.json(), expected)
         missing = _ASGIClient(create_app(Path(self.temporary.name) / "absent")).get("/health")
         self.assertEqual(missing.status_code, 503)
         self.assertEqual(missing.json()["status"], "not_ready")
