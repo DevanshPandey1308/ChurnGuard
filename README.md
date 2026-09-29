@@ -4,11 +4,9 @@ ChurnGuard is an end-to-end customer churn and future-value prediction project b
 
 The project is an engineering and modeling demonstration. It does not claim that a retention action will save revenue or cause a customer to return.
 
-<!-- Once deployed, replace this with your real links:
 ## Live demo
-- API: https://your-service.onrender.com/health
-- App: https://your-app.vercel.app
--->
+- API: https://churnguard-887t.onrender.com/health
+- App: https://churn-guard-mauve.vercel.app
 
 ## Problem
 
